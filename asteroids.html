@@ -19,6 +19,9 @@
 		const SHIP_SIZE = 30; //gemi yüksekliği*
 		const SHIP_THRUST = 5; //geminin ivmesi (pix / sec*2)
 		const TURN_SPEED = 360; //dönüş hızı (deg per sec)
+		const SHOW_BOUNDING = true; //collison bounding
+		const SHOW_CENTER_DOT = false;
+
 
 		//HTML ile bağlantı kuruyoruz ve 2D API yüklüyoruz 
 		var canv = document.getElementById("gameCanvas");
@@ -65,6 +68,15 @@
 
 		function distBetweenPoints(x1, y1, x2, y2) {
 			return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+		}
+
+		function explodeShip() {
+			ctx.fillStyle = "lime";
+			ctx.strokeStyle = "lime";
+			ctx.beginPath();
+			ctx.arc(ship.x, ship.y, ship.r, 0, Math.PI * 2, false);
+			ctx.fill();
+			ctx.stroke();
 		}
 
 		function newAstreoid(x, y) {
@@ -170,11 +182,19 @@
 			ctx.closePath();
 			ctx.stroke();
 
+			if (SHOW_BOUNDING) {
+				ctx.strokeStyle = "lime";
+				ctx.beginPath();
+				ctx.arc(ship.x, ship.y, ship.r, 0, Math.PI * 2, false);
+				ctx.stroke();
+			}
+
 			//astreoitleri çiziyoruz
-			ctx.strokeStyle = "slategrey";
-			ctx.lineWidth = SHIP_SIZE / 20;
+			
 			var x, y, r, a, vert, offs;
 			for(var i = 0; i < roids.length; i++){
+				ctx.strokeStyle = "slategrey";
+				ctx.lineWidth = SHIP_SIZE / 20;
 
 				//astreoit değerleri
 				x = roids[i].x;
@@ -201,22 +221,17 @@
 				ctx.closePath();
 				ctx.stroke();
 
-				//astreoit hareket
-				roids[i].x += roids[i].xv;
-				roids[i].y += roids[i].yv;
-
-				//ekran köşesi durumu
-				if(roids[i].x < 0 - roids[i].r) {
-					roids[i].x = canv.width + roids[i].r;
-				} else if (roids[i].x > canv.width + roids[i].r) {
-					roids[i].x = 0 - roids[i].r
-				}
-			
-			if(roids[i].y < 0 - roids[i].r) {
-					roids[i].y = canv.height + roids[i].r;
-				} else if (roids[i].y > canv.height + roids[i].r) {
-					roids[i].y = 0 - roids[i].r
-				}
+				if (SHOW_BOUNDING) {
+					ctx.strokeStyle = "lime";
+					ctx.beginPath();
+					ctx.arc(x, y, r, 0, Math.PI * 2, false);
+					ctx.stroke();
+			}
+		}
+			//astreoid-gemi çarpışma
+			for(var i = 0; i < roids.length; i++) { 
+			if (distBetweenPoints(ship.x, ship.y, roids[i].x, roids[i].y) < ship.r + roids[i].r) {
+				explodeShip();
 			}
 
 			//gemiyi döndürüyoruz
@@ -241,8 +256,30 @@
 				ship.y = 0 - ship.r;
 			}
 		  //merkez nokta
-			ctx.fillStyle= "red";
-			//ctx.fillRect(ship.x - 1, ship.y -1, 2, 2);
+			if (SHOW_CENTER_DOT) {
+				ctx.fillStyle= "red";
+			  ctx.fillRect(ship.x - 1, ship.y -1, 2, 2);
+			}
+
+			for(var i = 0; i < roids.length; i++){
+			//astreoit hareket
+				roids[i].x += roids[i].xv;
+				roids[i].y += roids[i].yv;
+
+				//ekran köşesi durumu
+				if(roids[i].x < 0 - roids[i].r) {
+					roids[i].x = canv.width + roids[i].r;
+				} else if (roids[i].x > canv.width + roids[i].r) {
+					roids[i].x = 0 - roids[i].r
+				}
+			
+			if(roids[i].y < 0 - roids[i].r) {
+					roids[i].y = canv.height + roids[i].r;
+				} else if (roids[i].y > canv.height + roids[i].r) {
+					roids[i].y = 0 - roids[i].r
+				}
+			}
+		}
 		}
 
 	</script>
