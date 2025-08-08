@@ -24,7 +24,9 @@
 		const TURN_SPEED = 360; //dönüş hızı (deg per sec)
 		const SHOW_BOUNDING = false; //collison bounding
 		const SHOW_CENTER_DOT = false;
-
+		const LASER_MAX = 10; //ekrandaki lazerlerin max sayısı
+		const LASER_SPEED = 500; //lazerlerin hızı px/sec
+		const LASER_DIST = 0.2; //lazerin gidebileceği maksimum nokta --sürtünmeye göre
 
 		//HTML ile bağlantı kuruyoruz ve 2D API yüklüyoruz 
 		var canv = document.getElementById("gameCanvas");
@@ -67,6 +69,9 @@
 		
 		function keyDown(/** @type {KeyboardEvent}*/ ev) {
 			switch(ev.keyCode) {
+				case 32: // boşluk tuşu(lazer ateşler)
+					shootLaser();
+					break;
 				case 37: //sol
 					ship.rot = TURN_SPEED / 180 * Math.PI / FPS;
 					break;
@@ -82,6 +87,9 @@
 
 		function keyUp(ev) { 
 			switch(ev.keyCode) {
+				case 32: // boşluk tuşu(ateşlemeye izin ver-tekrar-)
+					ship.canShoot = true;
+					break;
 				case 37: //sol --STOP
 					ship.rot = 0;
 					break;
@@ -122,6 +130,8 @@
 			a: 90 / 180 * Math.PI, //radians dönüştürme
 			blinkTime: Math.ceil(SHIP_BLINK_DUR * FPS),
 			blinkNum: Math.ceil(SHIP_INV_DUR / SHIP_BLINK_DUR),
+			canShoot: true,
+			lasers: [],
 			explodeTime: 0,
 			rot: 0,
 			thrusting: false,
@@ -130,6 +140,21 @@
 				y: 0
 			}
 		}
+		}
+
+		function shootLaser() {
+			//laser object
+			if (ship.canShoot && ship.lasers.length < LASER_MAX) {
+				ship.lasers.push({ //gemi burnundan ateşleme
+					x: ship.x + 4 / 3 * ship.r * Math.cos(ship.a),
+					y: ship.y - 4 / 3 * ship.r * Math.sin(ship.a),
+					xv: LASER_SPEED * Math.cos(ship.a) / FPS,
+					yv: -LASER_SPEED * Math.sin(ship.a) / FPS,
+					dist: 0
+				})
+			}
+			//ateşleme kontrol
+			ship.canShoot = false;
 		}
 
 		function update() {
@@ -279,6 +304,14 @@
 				ctx.fillStyle= "red";
 			  ctx.fillRect(ship.x - 1, ship.y -1, 2, 2);
 			}
+
+			//lazerleri çiz
+			for (var i = 0; i < ship.lasers.length; i++ ) {
+				ctx.fillStyle = "salmon";
+				ctx.beginPath();
+				ctx.arc(ship.lasers[i].x, ship.lasers[i].y, SHIP_SIZE / 15, 0, Math.PI * 2, false);
+				ctx.fill();
+			}
 			
 			//astreoid-gemi çarpışma
 			if(!exploding) {
@@ -316,6 +349,34 @@
 				ship.y = canv.height + ship.r;
 			} else if(ship.y > canv.height + ship.r) {
 				ship.y = 0 - ship.r;
+			}
+
+			//lazer hareketi
+			for (var i = ship.lasers.length -1; i >= 0; i--) {
+
+				//gidilen mesafeyi kontrol
+				if (ship.lasers[i].dist > LASER_DIST * canv.width) {
+					ship.lasers.splice(i, 1);
+					continue;
+				}
+				//lazer hareket
+				ship.lasers[i].x += ship.lasers[i].xv;
+				ship.lasers[i].y += ship.lasers[i].yv;
+
+				// gidilen mesafeyi hesapla
+				ship.laser[i].dist += Math.sqrt(Math.pow(ship.lasers[i].xv, 2) + Math.pow(ship.lasers[i].yv, 2 ));
+
+				//ekran köşesi durumu
+				if (ship.lasers[i].x < 0) {
+					ship.lasers[i].x = canv.width;
+				} else if (ship.lasers[i].x > canv.width) {
+					ship.lasers[i].x = 0;
+				}
+				if (ship.lasers[i].y < 0) {
+					ship.lasers[i].y = canv.height;
+				} else if (ship.lasers[i].y > canv.height) {
+					ship.lasers[i].y = 0;
+				}
 			}
 		  
 			//astreoit hareket
