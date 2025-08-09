@@ -15,6 +15,7 @@
 		const ROIDS_JAG = 0.4; //astreoitlerin bozukluğu 0-1
 		const ROIDS_SIZE = 100; // astreoit başlangıç büyüklüğü (pix)
 		const ROIDS_SPD = 50; //başlangıç astreoid hızı - en yüksek (pix/sec)
+		const LASER_EXPLODE_DUR = 0.1; //lazerlerin patlama süresi
 		const SHIP_INV_DUR = 3; //başlangıç görünmezlik değeri
 		const SHIP_BLINK_DUR = 0.1; //başlangıç görünmezlik --blink
 		const ROIDS_VERT = 10; //ortalama tepe noktası sayısı
@@ -26,7 +27,7 @@
 		const SHOW_CENTER_DOT = false;
 		const LASER_MAX = 10; //ekrandaki lazerlerin max sayısı
 		const LASER_SPEED = 500; //lazerlerin hızı px/sec
-		const LASER_DIST = 0.2; //lazerin gidebileceği maksimum nokta --sürtünmeye göre
+		const LASER_DIST = 0.6; //lazerin gidebileceği maksimum nokta --sürtünmeye göre
 
 		//HTML ile bağlantı kuruyoruz ve 2D API yüklüyoruz 
 		var canv = document.getElementById("gameCanvas");
@@ -54,8 +55,26 @@
 				x = Math.floor(Math.random() * canv.width);
 				y = Math.floor(Math.random() * canv.height);
 				} while (distBetweenPoints(ship.x, ship.y, x, y) < ROIDS_SIZE * 2 + ship.r);
-				roids.push(newAstreoid(x, y));
+				roids.push(newAstreoid(x, y, Math.ceil(ROIDS_SIZE / 2)));
 			}
+		}
+
+		function destroyAsteroid(index) {
+			var x = roids[index].x;
+			var y = roids[index].y;
+			var r = roids[index].r;
+			
+			//ikiye ayırma
+			if (r == Math.ceil(ROIDS_SIZE / 2)) {
+				roids.push(newAstreoid(x, y, Math.ceil(ROIDS_SIZE / 4)));
+				roids.push(newAstreoid(x, y, Math.ceil(ROIDS_SIZE / 4)));
+			} else if (r == Math.ceil(ROIDS_SIZE / 4)) {
+				roids.push(newAstreoid(x, y, Math.ceil(ROIDS_SIZE / 8)));
+				roids.push(newAstreoid(x, y, Math.ceil(ROIDS_SIZE / 8)));
+			}
+
+			//sonunda yok olur
+			roids.splice(index, 1);
 		}
 
 		function distBetweenPoints(x1, y1, x2, y2) {
@@ -102,13 +121,13 @@
 			}
 		}
 
-		function newAstreoid(x, y) {
+		function newAstreoid(x, y, r) {
 			var roid = {
 				x: x,
 				y: y,
 				xv: Math.random() * ROIDS_SPD / FPS * (Math.random() < 0.5 ? 1 : -1),
 				yv: Math.random() * ROIDS_SPD / FPS * (Math.random() < 0.5 ? 1 : -1),
-				r: ROIDS_SIZE / 2,
+				r: r,
 				a: Math.random() * Math.PI * 2, //radiant
 				vert: Math.floor(Math.random() * (ROIDS_VERT + 1) + ROIDS_VERT / 2),
 				offs: []
@@ -150,7 +169,8 @@
 					y: ship.y - 4 / 3 * ship.r * Math.sin(ship.a),
 					xv: LASER_SPEED * Math.cos(ship.a) / FPS,
 					yv: -LASER_SPEED * Math.sin(ship.a) / FPS,
-					dist: 0
+					dist: 0,
+					explodeTime: 0
 				})
 			}
 			//ateşleme kontrol
@@ -307,10 +327,53 @@
 
 			//lazerleri çiz
 			for (var i = 0; i < ship.lasers.length; i++ ) {
-				ctx.fillStyle = "salmon";
-				ctx.beginPath();
-				ctx.arc(ship.lasers[i].x, ship.lasers[i].y, SHIP_SIZE / 15, 0, Math.PI * 2, false);
-				ctx.fill();
+				if (ship.lasers[i].explodeTime == 0) {
+					ctx.fillStyle = "salmon";
+					ctx.beginPath();
+					ctx.arc(ship.lasers[i].x, ship.lasers[i].y, SHIP_SIZE / 15, 0, Math.PI * 2, false);
+					ctx.fill();
+				} else {
+					//patlamayı çiz
+					ctx.fillStyle = "orange";
+					ctx.beginPath();
+					ctx.arc(ship.lasers[i].x, ship.lasers[i].y, ship.r * 0.75, 0, Math.PI * 2, false);
+					ctx.fill();
+					ctx.fillStyle = "red";
+					ctx.beginPath();
+					ctx.arc(ship.lasers[i].x, ship.lasers[i].y, ship.r * 0.5, 0, Math.PI * 2, false);
+					ctx.fill();
+					ctx.fillStyle = "pink";
+					ctx.beginPath();
+					ctx.arc(ship.lasers[i].x, ship.lasers[i].y, ship.r * 0.25, 0, Math.PI * 2, false);
+					ctx.fill();
+				} 
+			}
+
+			//astreoitlere lazer değmesi durumu
+			var ax, ay, ar, lx, ly;
+			for (var i = roids.length - 1; i>= 0; i--) {
+
+				ax = roids[i].x;
+				ay = roids[i].y;
+				ar = roids[i].r;
+
+				for (var j = ship.lasers.length - 1; j >= 0; j--) {
+
+					lx = ship.lasers[j].x;
+					ly = ship.lasers[j].y;
+					
+					//vuruşları denetle
+					if (ship.lasers[j].explodeTime == 0 && distBetweenPoints(ax, ay, lx, ly) < ar) {
+						
+						
+
+						//astreoiti kaldırma ve lazer patlaması
+						destroyAsteroid(i);
+						ship.lasers[j].explodeTime = Math.ceil(LASER_EXPLODE_DUR * FPS);
+						break;
+					}
+				}
+
 			}
 			
 			//astreoid-gemi çarpışma
@@ -319,6 +382,8 @@
 					for(var i = 0; i < roids.length; i++) { 
 						if (distBetweenPoints(ship.x, ship.y, roids[i].x, roids[i].y) < ship.r + roids[i].r) {
 							explodeShip();
+							destroyAsteroid(i);
+							break;
 						}
 				}
 			}
@@ -359,13 +424,24 @@
 					ship.lasers.splice(i, 1);
 					continue;
 				}
-				//lazer hareket
-				ship.lasers[i].x += ship.lasers[i].xv;
-				ship.lasers[i].y += ship.lasers[i].yv;
 
-				// gidilen mesafeyi hesapla
-				ship.laser[i].dist += Math.sqrt(Math.pow(ship.lasers[i].xv, 2) + Math.pow(ship.lasers[i].yv, 2 ));
+				//patlama sırası
+				if(ship.lasers[i].explodeTime > 0) {
+					ship.lasers[i].explodeTime--;
 
+					if (ship.lasers[i].explodeTime == 0) {
+						ship.lasers.splice(i, 1);
+						continue;
+					}
+				} else {
+					//lazer hareket
+					ship.lasers[i].x += ship.lasers[i].xv;
+					ship.lasers[i].y += ship.lasers[i].yv;
+
+					// gidilen mesafeyi hesapla
+					ship.lasers[i].dist += Math.sqrt(Math.pow(ship.lasers[i].xv, 2) + Math.pow(ship.lasers[i].yv, 2 ));
+				}
+				
 				//ekran köşesi durumu
 				if (ship.lasers[i].x < 0) {
 					ship.lasers[i].x = canv.width;
